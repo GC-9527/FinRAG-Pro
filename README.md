@@ -1,103 +1,225 @@
-# RAG Challenge Winner Solution
+# FinRAG Pro - 企业智能问答系统
 
-**Read more about this project:**
-- Russian: https://habr.com/ru/articles/893356/
-- English: https://abdullin.com/ilya/how-to-build-best-rag/
+基于检索增强生成（RAG）技术的企业知识库智能问答系统，专门用于企业年报等文档的智能问答。
 
-This repository contains the winning solution for both prize nominations in the RAG Challenge competition. The system achieved state-of-the-art results in answering questions about company annual reports using a combination of:
+## 功能特性
 
-- Custom PDF parsing with Docling
-- Vector search with parent document retrieval
-- LLM reranking for improved context relevance
-- Structured output prompting with chain-of-thought reasoning
-- Query routing for multi-company comparisons
+- 📄 **智能文档解析**：使用 Docling 实现高质量 PDF 解析，支持表格、图片等复杂内容提取
+- 🔍 **混合检索**：结合 BM25 关键词检索与 FAISS 向量检索，提升召回准确率
+- 📝 **查询改写**：通过 LLM 智能改写用户问题，优化检索效果
+- 🎯 **增强重排序**：对检索结果进行二次排序，确保最相关内容优先
+- 🤖 **多模型支持**：支持通义千问、OpenAI、Gemini 等多种大模型
+- 💬 **流式对话**：提供自然的对话式交互体验
+- 🏢 **多企业支持**：支持同时管理多个企业的知识库
 
-## Disclaimer
+## 技术栈
 
-This is competition code - it's scrappy but it works. Some notes before you dive in:
+- **后端框架**：FastAPI
+- **向量数据库**：FAISS
+- **大模型**：通义千问 (Qwen) / OpenAI / Gemini
+- **PDF 解析**：Docling
+- **前端框架**：React + TypeScript
+- **重排序**：BM25 + 自定义重排序算法
+- **文本切分**：智能分块策略
 
-- IBM Watson integration won't work (it was competition-specific)
-- The code might have rough edges and weird workarounds
-- No tests, minimal error handling - you've been warned
-- You'll need your own API keys for OpenAI/Gemini
-- GPU helps a lot with PDF parsing (I used 4090)
+## 项目结构
 
-If you're looking for production-ready code, this isn't it. But if you want to explore different RAG techniques and their implementations - check it out!
-
-## Quick Start
-
-Clone and setup:
-```bash
-git clone https://github.com/IlyaRice/RAG-Challenge-2.git
-cd RAG-Challenge-2
-python -m venv venv
-venv\Scripts\Activate.ps1  # Windows (PowerShell)
-pip install -e . -r requirements.txt
+```
+RAG-cy/
+├── api_server.py              # FastAPI 后端服务入口
+├── app_streamlit.py          # Streamlit 演示应用
+├── add_new_company.py        # 添加新企业脚本
+├── src/
+│   ├── api_requests.py       # 多 LLM API 封装
+│   ├── pipeline.py           # 核心流程编排
+│   ├── questions_processing.py  # 问题处理核心逻辑
+│   ├── retrieval.py          # 向量检索模块
+│   ├── query_rewriter.py     # 查询改写模块
+│   ├── enhanced_reranker.py  # 增强重排序模块
+│   ├── ingestion.py          # 数据摄入模块
+│   ├── text_splitter.py      # 文本切分模块
+│   ├── pdf_parsing.py        # PDF 解析模块
+│   ├── reranking.py          # 重排序模块
+│   ├── prompts.py            # Prompt 模板
+│   └── tables_serialization.py  # 表格序列化
+└── data/
+    └── stock_data/           # 企业知识库数据
 ```
 
-Rename `env` to `.env` and add your API keys.
+## 快速开始
 
-## Test Dataset
+### 环境配置
 
-The repository includes two datasets:
-
-1. A small test set (in `data/test_set/`) with 5 annual reports and questions
-2. The full ERC2 competition dataset (in `data/erc2_set/`) with all competition questions and reports
-
-Each dataset directory contains its own README with specific setup instructions and available files. You can use either dataset to:
-
-- Study example questions, reports, and system outputs
-- Run the pipeline from scratch using provided PDFs
-- Use pre-processed data to skip directly to specific pipeline stages
-
-See the respective README files for detailed dataset contents and setup instructions:
-- `data/test_set/README.md` - For the small test dataset
-- `data/erc2_set/README.md` - For the full competition dataset
-
-## Usage
-
-You can run any part of pipeline by uncommenting the method you want to run in `src/pipeline.py` and executing:
+1. 克隆项目
 ```bash
-python .\src\pipeline.py
+git clone https://github.com/GC-9527/FinRAG-Pro.git
+cd FinRAG-Pro
 ```
 
-You can also run any pipeline stage using `main.py`, but you need to run it from the directory containing your data:
+2. 安装依赖
 ```bash
-cd .\data\test_set\
-python ..\..\main.py process-questions --config max_nst_o3m
+pip install -r requirements.txt
 ```
 
-### CLI Commands
+3. 配置环境变量
 
-Get help on available commands:
-```bash
-python main.py --help
+创建 `.env` 文件并添加：
+```env
+DASHSCOPE_API_KEY=your_dashscope_api_key
+# 可选：其他模型 API Key
+# OPENAI_API_KEY=your_openai_key
+# GEMINI_API_KEY=your_gemini_key
 ```
 
-Available commands:
-- `download-models` - Download required docling models
-- `parse-pdfs` - Parse PDF reports with parallel processing options
-- `serialize-tables` - Process tables in parsed reports
-- `process-reports` - Run the full pipeline on parsed reports
-- `process-questions` - Process questions using specified config
+### 启动服务
 
-Each command has its own options. For example:
+1. 启动后端服务
 ```bash
-python main.py parse-pdfs --help
-# Shows options like --parallel/--sequential, --chunk-size, --max-workers
-
-python main.py process-reports --config ser_tab
-# Process reports with serialized tables config
+python api_server.py
 ```
 
-## Some configs
+后端服务将在 `http://localhost:8000` 启动
 
-- `max_nst_o3m` - Best performing config using OpenAI's o3-mini model
-- `ibm_llama70b` - Alternative using IBM's Llama 70B model
-- `gemini_thinking` - Full context answering with using enormous context window of Gemini. It is not RAG, actually
+2. 启动前端（在另一个终端）
+```bash
+cd ../构建RAG项目前端代码
+npm install
+npm run dev
+```
 
-Check `pipeline.py` for more configs and detils on them.
+前端服务将在 `http://localhost:5173` 启动
 
-## License
+## 使用说明
 
-MIT
+### 添加新企业知识库
+
+1. 准备企业年报 PDF 文件
+2. 运行添加脚本：
+```bash
+python add_new_company.py
+```
+
+3. 按照提示输入企业信息和 PDF 路径
+
+### API 接口
+
+#### 健康检查
+```
+GET /api/health
+```
+
+#### 获取企业列表
+```
+GET /api/companies
+```
+
+#### 流式问答
+```
+POST /api/chat/stream
+Content-Type: application/json
+
+{
+  "question": "中超控股的研发投入情况如何？",
+  "company_name": "中超控股",
+  "use_query_rewrite": true,
+  "use_enhanced_reranker": true
+}
+```
+
+#### 获取配置
+```
+GET /api/config
+```
+
+#### 更新配置
+```
+POST /api/config
+Content-Type: application/json
+
+{
+  "use_query_rewrite": true,
+  "use_enhanced_reranker": true
+}
+```
+
+## 核心模块说明
+
+### 1. 数据摄入 ([ingestion.py](src/ingestion.py))
+- PDF 文档解析与文本提取
+- 智能文本切分
+- 向量索引构建
+
+### 2. 检索模块 ([retrieval.py](src/retrieval.py))
+- BM25 关键词检索
+- FAISS 向量检索
+- 父文档检索策略
+
+### 3. 查询改写 ([query_rewriter.py](src/query_rewriter.py))
+- 问题理解与分类
+- 智能改写优化
+- 多轮对话上下文处理
+
+### 4. 增强重排序 ([enhanced_reranker.py](src/enhanced_reranker.py))
+- 检索结果融合
+- 相关性重排序
+- 冗余过滤
+
+### 5. 问题处理 ([questions_processing.py](src/questions_processing.py))
+- RAG 上下文构建
+- LLM 答案生成
+- 结构化输出解析
+
+## 配置说明
+
+在 [pipeline.py](src/pipeline.py) 中可以配置：
+
+- `use_query_rewrite`：是否启用查询改写
+- `use_enhanced_reranker`：是否启用增强重排序
+- `answering_model`：使用的 LLM 模型
+- `parent_document_retrieval`：是否使用父文档检索
+
+## 开发说明
+
+### 添加新的 LLM 支持
+
+在 [api_requests.py](src/api_requests.py) 中扩展 `BaseDashscopeProcessor` 或添加新的 Processor 类。
+
+### 自定义 Prompt
+
+在 [prompts.py](src/prompts.py) 中修改或添加 Prompt 模板。
+
+### 测试
+
+运行自动化测试：
+```bash
+python test_core_audit.py
+```
+
+## 性能优化建议
+
+1. **向量检索**：使用 GPU 加速 FAISS
+2. **PDF 解析**：Docling 支持 GPU 加速，建议使用
+3. **批量处理**：使用并行处理加速文档摄入
+4. **缓存策略**：对频繁查询结果进行缓存
+
+## 常见问题
+
+**Q: 如何切换使用的大模型？**
+
+A: 在 [pipeline.py](src/pipeline.py) 或通过前端配置页面修改 `answering_model` 参数。
+
+**Q: 如何提高检索准确率？**
+
+A: 建议同时启用查询改写和增强重排序功能，并确保文档切分质量。
+
+**Q: 支持哪些格式的文档？**
+
+A: 当前主要支持 PDF 格式，可扩展支持 Word、PPT 等格式。
+
+## 许可证
+
+MIT License
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request！
