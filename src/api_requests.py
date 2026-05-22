@@ -674,8 +674,21 @@ class AsyncOpenaiProcessor:
 class BaseDashscopeProcessor:
     def __init__(self):
         # 从环境变量读取API-KEY
-        dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
+        api_key = os.getenv("DASHSCOPE_API_KEY")
+        dashscope.api_key = api_key
         self.default_model = 'qwen-turbo-latest'
+        
+        # 禁用代理设置
+        os.environ['NO_PROXY'] = 'dashscope.aliyuncs.com,aliyuncs.com'
+        os.environ['no_proxy'] = 'dashscope.aliyuncs.com,aliyuncs.com'
+        
+        # 记录初始化日志
+        if api_key:
+            print(f"[DEBUG BaseDashscopeProcessor] 初始化成功，API Key: {api_key[:8]}...")
+        else:
+            print(f"[DEBUG BaseDashscopeProcessor] 警告：未找到 DASHSCOPE_API_KEY 环境变量")
+        print(f"[DEBUG BaseDashscopeProcessor] NO_PROXY 设置: {os.environ.get('NO_PROXY')}")
+        print(f"[DEBUG BaseDashscopeProcessor] no_proxy 设置: {os.environ.get('no_proxy')}")
 
     def send_message(
         self,
@@ -694,28 +707,41 @@ class BaseDashscopeProcessor:
         """
         if model is None:
             model = self.default_model
+        
         # 拼接 messages
         messages = []
         if system_content:
             messages.append({"role": "system", "content": system_content})
         if human_content:
             messages.append({"role": "user", "content": human_content})
-        #print('system_content=', system_content)
-        #print('='*30)
-        #print('human_content=', human_content)
-        #print('='*30)
-        #print('messages=', messages)
-        #print('='*30)
+        
+        # 记录请求开始日志
+        print(f"[DEBUG BaseDashscopeProcessor] 开始发送请求，模型: {model}, 温度: {temperature}")
+        print(f"[DEBUG BaseDashscopeProcessor] 用户内容长度: {len(human_content)}, 系统内容长度: {len(system_content) if system_content else 0}")
+        print(f"[DEBUG BaseDashscopeProcessor] 当前 NO_PROXY: {os.environ.get('NO_PROXY')}")
+        
         # 调用 dashscope Generation.call
-        response = dashscope.Generation.call(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            result_format='message'
-        )
-        print('dashscope.api_key=', dashscope.api_key)
-        print('model=', model)
-        print('response=', response)
+        import time
+        start_time = time.time()
+        try:
+            response = dashscope.Generation.call(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                result_format='message'
+            )
+            elapsed_time = time.time() - start_time
+            print(f"[DEBUG BaseDashscopeProcessor] 请求完成，耗时: {elapsed_time:.2f}秒")
+        except Exception as e:
+            elapsed_time = time.time() - start_time
+            print(f"[DEBUG BaseDashscopeProcessor] 请求异常，耗时: {elapsed_time:.2f}秒，错误: {str(e)}")
+            raise
+        
+        # 记录响应日志
+        print(f"[DEBUG BaseDashscopeProcessor] 响应状态: {response.status_code if hasattr(response, 'status_code') else 'N/A'}")
+        print(f"[DEBUG BaseDashscopeProcessor] 响应 request_id: {response.request_id if hasattr(response, 'request_id') else 'N/A'}")
+        print(f"[DEBUG BaseDashscopeProcessor] 响应 code: {response.code if hasattr(response, 'code') else 'N/A'}")
+        print(f"[DEBUG BaseDashscopeProcessor] 响应 message: {response.message if hasattr(response, 'message') else 'N/A'}")
         # 兼容 openai/gemini 返回格式，始终返回 dict
         if hasattr(response, 'output') and hasattr(response.output, 'choices'):
             content = response.output.choices[0].message.content
